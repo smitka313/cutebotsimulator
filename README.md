@@ -22,9 +22,9 @@ Everything else runs in the browser. There is no server and no student accounts.
 
 ## How students turn in work
 
-* **Real-world mode is on by default.** The motors are slightly uneven, they stall below 15 % speed, and the sonar and line
-  sensors are a little noisy, so programs that work here are more likely to work on a real Cutebot. Students can switch it off
-  for a perfect robot; proofs made that way are marked *ideal* in the teacher panel.
+* **Real-world mode** is off by default, so beginners get a perfect robot. Switched on, the motors are slightly uneven, they
+  stall below 15 % speed, and the sonar and line sensors are a little noisy, so programs that work there are more likely to
+  work on a real Cutebot. Proofs made with it on are marked *real* in the teacher panel.
 * **Challenges tab:** pick a challenge, write a program, press **Run**. A passing run saves a *proof* in the browser:
   the exact programs for both micro:bits, a random seed, the starting sensor values, and every button press with its time.
   The best time per challenge is kept.

@@ -193,13 +193,13 @@ L.LESSONS = [
     { t: 'Repeat', html: `Drag ${P.rep} from <b>Loops</b> into ${P.on}.`, check: (q) => q.has('robot', 'controls_repeat_ext', 'mb_on_start') },
     { t: 'One side and one corner', html: `Inside the loop, add ${P.move}, then another go block set to <b>Right</b> at <b>40 %</b> for <b>0.5</b> seconds.`, check: (q) => q.count('robot', 'cb_move_time', 'controls_repeat_ext') >= 2 },
     { t: 'Tune the corners', html: `Make sure <b>Trail</b> is on and press Run. If the corners are not square, change the turn time a little and run again. This is called <b>calibrating</b>.`, check: (q) => q.ran },
-    { t: 'Real motors drift', html: `<b>Real-world</b> mode is on, so, like on a real robot, the two motors are never exactly the same and the square bends a little. Switch it off for a moment to see a perfect robot, then switch it back on. To correct the drift, make the weaker wheel a little faster with ${P.motors}. Then try the <b>Square dance</b> challenge.`, check: (q) => q.passed('square') }
+    { t: 'Real motors drift', html: `Switch on <b>Real-world</b> mode and run again. Like on a real robot, the two motors are never exactly the same, so the square bends. To correct the drift, make the weaker wheel a little faster with ${P.motors}. Then try the <b>Square dance</b> challenge.`, check: (q) => q.passed('square') }
   ] },
   { id: 'avoid', title: 'Don’t crash', level: 'Sensors + logic', map: 'room', steps: [
     { t: 'Make a decision', html: `Drag ${P.ifelse} from <b>Logic</b> into ${P.fv}.`, check: (q) => q.has('robot', 'controls_if', 'mb_forever') },
     { t: 'Ask the sonar', html: `Put a ${P.cmp} block in the if. Put ${P.sonar} on the left and type <b>15</b> on the right. The sonar measures the distance in front of the robot.`, check: (q) => q.has('robot', 'cb_sonar', 'logic_compare') },
     { t: 'Back up and turn', html: `In the <b>if</b> part: go <b>Backward</b> 40 % for 0.3 s, then go <b>Right</b> 40 % for 0.4 s. In the <b>else</b> part: ${P.motors}.`, check: (q) => q.has('robot', 'cb_move_time', 'controls_if') && q.has('robot', 'cb_motors', 'controls_if') },
-    { t: 'Real sensors glitch', html: `Run it and watch. With <b>Real-world</b> mode on, the sonar sometimes hears no echo and reports <b>0</b>, just like a real one, so the robot backs up for no reason. Fix it with ${P.and}: sonar &lt; 15 <b>and</b> sonar &gt; 0.`, check: (q) => q.has('robot', 'logic_operation', 'mb_forever') },
+    { t: 'Real sensors glitch', html: `Run it, then switch on <b>Real-world</b> mode and run it again. Now the sonar sometimes hears no echo and reports <b>0</b>, just like a real one, so the robot backs up for no reason. Fix it with ${P.and}: sonar &lt; 15 <b>and</b> sonar &gt; 0.`, check: (q) => q.has('robot', 'logic_operation', 'mb_forever') },
     { t: 'Challenge', html: `Open the <b>Challenges</b> tab and try <b>Reach the flag</b>.`, check: (q) => q.passed('flag') }
   ] },
   { id: 'line', title: 'Follow the line', level: 'Sensors + logic', map: 'track', steps: [
@@ -220,7 +220,7 @@ L.LESSONS = [
     { t: 'Send a reading', html: `Put ${P.sv} in ${P.fv}. Change “x” to <b>distance</b> and put ${P.sonar} in the number slot.`, check: (q) => q.has('robot', 'cb_sonar', 'serial_value') },
     { t: 'Drive slowly', html: `Put ${P.motors} in ${P.on} with both speeds at <b>25</b>.`, check: (q) => q.has('robot', 'cb_motors', 'mb_on_start') },
     { t: 'Watch the graph', html: `Run it and open the <b>Data</b> tab. As the robot gets closer to a box, the line goes down.`, check: (q) => q.ran && q.serial },
-    { t: 'Spot the glitches', html: `Look closely at the graph. With <b>Real-world</b> mode on, do you see readings drop to 0? Those are missed echoes. A program can ignore readings of 0 so they don’t fool it. Use <b>Download CSV</b> to open the data in a spreadsheet.` }
+    { t: 'Spot the glitches', html: `Switch on <b>Real-world</b> mode and run again. Do you see readings drop to 0? Those are missed echoes. A program can ignore readings of 0 so they don’t fool it. Use <b>Download CSV</b> to open the data in a spreadsheet.` }
   ] }
 ];
 })();

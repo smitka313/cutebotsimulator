@@ -6,7 +6,7 @@ const { $, esc, bot, RT, devices } = L;
 
 let ws = null;
 const proj = { active: 'robot', programs: { robot: null, remote: null } };
-const ui = { speed: '1', real: true, highlight: true, sound: true, trail: true, tab: 'board', split: null, lessons: false, autorun: true, big: false, editArena: false };
+const ui = { speed: '1', real: false, highlight: true, sound: true, trail: true, tab: 'board', split: null, lessons: false, autorun: true, big: false, editArena: false };
 const UISTORE = 'cutebot-lab-ui', PROOFS = 'cutebot-lab-proofs', LESSONSTORE = 'cutebot-lab-lessons', STUDENT = 'cutebot-lab-student', TURNED = 'cutebot-lab-turnedin';
 const PINDEX = 'cutebot-lab-projects', pkey = (id) => 'cutebot-lab-project-' + id;
 const readJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch (e) { return d; } };
@@ -519,7 +519,7 @@ function showPassed({ ch, t, better, best, real }) {
   const actions = [['Stay here', () => {}]];
   if (next) actions.push([`Next: ${next.title}`, () => armChallenge(next.id)]);
   actions.push(['Turn in now', () => { openTurnIn(); return false; }, true]);
-  modal('Challenge passed!', `<div class="passed"><div class="passed-big" aria-hidden="true">✓</div><div><b>${esc(ch.title)}</b> in <b>${t} s</b>${real ? '' : ' with real-world mode off'}.<br>
+  modal('Challenge passed!', `<div class="passed"><div class="passed-big" aria-hidden="true">✓</div><div><b>${esc(ch.title)}</b> in <b>${t} s</b>${real ? ' in real-world mode' : ''}.<br>
     ${better ? 'Your proof is saved in this browser.' : `Your best time is still ${best} s.`} Turn in your work so your teacher can check it.</div></div>`, actions);
 }
 let stripKey = '';
@@ -532,7 +532,7 @@ function renderChallengeStrip(force) {
   const prog = ch.progress ? ch.progress(crun.st) : '';
   const key = [s, crun.t.toFixed(1), prog, crun.msg, !!replayOf].join('|');
   if (key === stripKey && !force) return; stripKey = key;
-  el.innerHTML = `<div class="cs-top"><b>${replayOf ? 'Replay: ' + esc(replayOf) + ' · ' : ''}${esc(ch.title)}</b>${badge}${RT.running && !L.real.active ? '<span class="badge">Real-world off</span>' : ''}<span class="cs-time">${crun.t.toFixed(1)} s / ${ch.limit} s</span><button class="btn small" id="btnExitCh">${replayOf ? 'Close replay' : 'Exit challenge'}</button></div>
+  el.innerHTML = `<div class="cs-top"><b>${replayOf ? 'Replay: ' + esc(replayOf) + ' · ' : ''}${esc(ch.title)}</b>${badge}${L.real.active ? '<span class="badge run">Real-world</span>' : ''}<span class="cs-time">${crun.t.toFixed(1)} s / ${ch.limit} s</span><button class="btn small" id="btnExitCh">${replayOf ? 'Close replay' : 'Exit challenge'}</button></div>
     <div class="cs-prog">${esc(prog)}${crun.msg ? ' · <b>' + esc(crun.msg) + '</b>' : ''}${!replayOf && (s === 'fail' || s === 'stopped') ? ' Press Run to try again.' : ''}</div>`;
   $('btnExitCh').onclick = () => { const back = !!replayOf; exitChallenge(); if (back) openTeacher(); };
   // the goal sits on the arena until the run starts
@@ -544,7 +544,7 @@ function renderChallengeList() {
   $('chList').innerHTML = L.CHALLENGES.map(ch => {
     const p = proofs[ch.id];
     return `<li class="ch-row${challenge && challenge.id === ch.id ? ' active' : ''}"><div><b>${esc(ch.title)}</b><span class="ch-map">${esc(L.MAPS[ch.map].name)}</span><p>${esc(ch.goal)}</p></div>
-      <div class="ch-side">${p ? `<span class="badge pass">Best ${p.t} s${p.real ? '' : ' · ideal mode'}</span>` : '<span class="badge">Not passed</span>'}<button class="btn small" data-ch="${ch.id}">${challenge && challenge.id === ch.id ? 'Restart' : 'Start'}</button></div></li>`;
+      <div class="ch-side">${p ? `<span class="badge pass">Best ${p.t} s${p.real ? ' · real-world' : ''}</span>` : '<span class="badge">Not passed</span>'}<button class="btn small" data-ch="${ch.id}">${challenge && challenge.id === ch.id ? 'Restart' : 'Start'}</button></div></li>`;
   }).join('');
   $('chList').querySelectorAll('button[data-ch]').forEach(b => b.onclick = () => armChallenge(b.dataset.ch));
   const pend = notTurnedIn().length;
@@ -583,7 +583,7 @@ function openTurnIn() {
   const st = readJSON(STUDENT, { name: '', period: '' });
   const list = L.CHALLENGES.map(ch => {
     const p = proofs[ch.id], fresh = p && (!turned[p.c] || turned[p.c] < p.at);
-    return `<li><label class="ti-row"><input type="checkbox" value="${ch.id}" ${p ? 'checked' : 'disabled'}><span><b>${esc(ch.title)}</b>${p ? ` · ${p.t} s${p.real ? '' : ' · real-world mode was off'}` : ' · not passed yet'}</span>${fresh ? '<span class="badge run">New</span>' : p ? '<span class="badge">Turned in before</span>' : ''}</label></li>`;
+    return `<li><label class="ti-row"><input type="checkbox" value="${ch.id}" ${p ? 'checked' : 'disabled'}><span><b>${esc(ch.title)}</b>${p ? ` · ${p.t} s${p.real ? ' · real-world mode' : ''}` : ' · not passed yet'}</span>${fresh ? '<span class="badge run">New</span>' : p ? '<span class="badge">Turned in before</span>' : ''}</label></li>`;
   }).join('');
   modal('Turn in your work', `
     <div class="ti-form"><label for="tiName">Your name <input type="text" id="tiName" maxlength="60" autocomplete="name" value="${esc(st.name)}" placeholder="First and last name"></label>
@@ -671,7 +671,7 @@ function renderTeacher() {
       const r = s.results[c.id]; if (!r) return '<td class="tc none">–</td>';
       const p = d.proofs.find(x => x && x.c === c.id), [cls, mark] = CELL[r.status] || CELL.fail;
       const label = r.status === 'ok' || r.status === 'differs' ? `${r.t} s` : r.status === 'pending' ? '' : 'failed';
-      return `<td class="tc"><button class="tcell ${cls}" data-sub="${s.id}" data-c="${c.id}" title="${esc(r.msg || (r.status === 'ok' ? 'Checked: the replay passed with the same time.' : ''))}">${mark} ${esc(label)}${p && !p.real && r.status !== 'pending' ? ' <small>ideal</small>' : ''}</button></td>`;
+      return `<td class="tc"><button class="tcell ${cls}" data-sub="${s.id}" data-c="${c.id}" title="${esc(r.msg || (r.status === 'ok' ? 'Checked: the replay passed with the same time.' : ''))}">${mark} ${esc(label)}${p && p.real ? ' <small>real</small>' : ''}</button></td>`;
     }).join('');
     const dup = dups.get(s.id);
     return `<tr><td><b>${esc(st.name || '(no name)')}</b>${dup ? `<div class="dupe" title="Identical code">Same code as ${esc(dup.join(', '))}</div>` : ''}</td><td>${esc(st.period || '')}</td><td>${esc(d.project.name || '')}</td>
@@ -679,7 +679,7 @@ function renderTeacher() {
       <td class="tact"><button class="btn small" data-code="${s.id}">View code</button><button class="btn small" data-open="${s.id}">Open project</button><button class="btn small" data-rm="${s.id}" aria-label="Remove ${esc(st.name || s.file)}">Remove</button></td></tr>`;
   }).join('');
   body.innerHTML = `<div class="ttable-wrap"><table class="ttable"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
-    <p class="note">✓ checked: the replay passed in the same time · ! passed, but the time differs · ✗ the replay did not pass · <i>ideal</i> = passed with real-world mode switched off. Click a result to watch the replay.</p>`;
+    <p class="note">✓ checked: the replay passed in the same time · ! passed, but the time differs · ✗ the replay did not pass · <i>real</i> = passed in real-world mode. Click a result to watch the replay.</p>`;
   body.querySelectorAll('.tcell').forEach(b => b.onclick = () => openProofDetail(b.dataset.sub, b.dataset.c));
   body.querySelectorAll('[data-code]').forEach(b => b.onclick = () => showSubCode(subs.find(s => s.id === b.dataset.code)));
   body.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openSubProject(subs.find(s => s.id === b.dataset.open)));
@@ -700,7 +700,7 @@ function openProofDetail(subId, cid) {
   const p = s.data.proofs.find(x => x && x.c === cid), r = s.results[cid], ch = L.CHALLENGES.find(c => c.id === cid);
   if (!p || !ch) return;
   const status = r.status === 'ok' ? `<span class="badge pass">Checked · ${r.t} s</span>` : r.status === 'differs' ? `<span class="badge run">Passed in ${r.t} s</span>` : r.status === 'pending' ? '<span class="badge">Checking…</span>' : '<span class="badge fail">Did not pass</span>';
-  modal(`${s.data.student?.name || s.file}: ${ch.title}`, `<p>${status} ${p.real ? '<span class="badge run">Real-world mode</span>' : '<span class="badge">Real-world mode off (ideal robot)</span>'}</p>
+  modal(`${s.data.student?.name || s.file}: ${ch.title}`, `<p>${status} ${p.real ? '<span class="badge run">Real-world mode</span>' : ''}</p>
     <p class="note big" style="padding:0">Time in the file: <b>${esc(p.t)} s</b> · Recorded ${p.at ? esc(new Date(p.at).toLocaleString()) : ''} · ${p.inputs ? p.inputs.length : 0} button presses during the run.${r.msg ? '<br>' + esc(r.msg) : ''}</p>
     <span class="sec-label">Program used for this run</span>${codeBlocks(p.programs || {})}`,
     [['Close', () => {}], ['Watch the replay', () => { closeTeacher(); verifyProof(p, { fast: false, who: s.data.student?.name || s.file }); }, true]], true);
@@ -866,8 +866,8 @@ function setLessons(open) {
 function init() {
   Object.assign(ui, readJSON(UISTORE, {}));
   if (!SPEEDS[ui.speed]) ui.speed = '1';
-  // real-world mode became the default later on; switch it on once for anyone whose saved settings predate that
-  if (!ui.realDefault) { ui.real = true; ui.realDefault = 1; writeJSON(UISTORE, ui); }
+  // real-world mode was on by default for a while; switch it off once for anyone who got it that way
+  if ((ui.realDefault || 0) < 2) { ui.real = false; ui.realDefault = 2; writeJSON(UISTORE, ui); }
   buildBoard($('mbRobot'), 'robot'); buildBoard($('mbRemote'), 'remote');
   L.buildFloor(); L.sizeArena();
 
