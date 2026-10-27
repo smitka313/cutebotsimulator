@@ -88,4 +88,4 @@ micro:bit libraries and the ELECFREAKS Cutebot and NeoPixel extensions.
 
 ## License
 
-Released under the [MIT License](LICENSE). The Blockly icons in `media/` remain under the Apache License 2.0.
+Released under the [MIT License](LICENSE) by Bob Smitka. The Blockly icons in `media/` remain under the Apache License 2.0; see [NOTICE](NOTICE).
