@@ -155,6 +155,10 @@ L.CHALLENGES = [
     draw: drawFlag, marks: [[FLAG.x + 7, FLAG.y - 3, 'Finish here']], progress: (st) => `Radio messages: ${st.radio || 0}` }
 ];
 
+// the order students see (also the teacher table's column order and the "Next challenge" order)
+const CHALLENGE_ORDER = ['flag', 'park', 'square', 'laps', 'curvy', 'sumo', 'remote'];
+L.CHALLENGES.sort((a, b) => CHALLENGE_ORDER.indexOf(a.id) - CHALLENGE_ORDER.indexOf(b.id));
+
 /** One attempt at a challenge. The same object runs live runs and teacher replays, so the rules can't drift apart. */
 L.makeChallengeRun = function (ch) {
   const run = { ch, st: {}, t: 0, n: 0, state: 'ready', msg: '' };
