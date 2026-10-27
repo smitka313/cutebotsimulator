@@ -85,3 +85,7 @@ micro:bit libraries and the ELECFREAKS Cutebot and NeoPixel extensions.
 * Cutebot block names and behaviour follow the [ELECFREAKS pxt-cutebot extension](https://github.com/elecfreaks/pxt-cutebot).
 * micro:bit block names follow [Microsoft MakeCode for micro:bit](https://makecode.microbit.org/).
   This project is not made by or affiliated with Microsoft, the Micro:bit Educational Foundation or ELECFREAKS.
+
+## License
+
+Released under the [MIT License](LICENSE). The Blockly icons in `media/` remain under the Apache License 2.0.
