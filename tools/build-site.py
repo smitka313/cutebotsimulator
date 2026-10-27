@@ -37,6 +37,7 @@ if out.exists():
 (out / 'index.html').write_text(page, encoding='utf-8')
 for f in (root / 'js').glob('*.js'):
     shutil.copy(f, out / 'js' / f.name)
+shutil.copytree(root / 'vendor', out / 'vendor')
 (out / 'media').mkdir()
 for f in (root / 'media').iterdir():
     shutil.copy(f, out / 'media' / f.name)

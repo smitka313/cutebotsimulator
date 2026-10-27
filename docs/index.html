@@ -7,6 +7,7 @@
 <meta name="description" content="A micro:bit block editor with a virtual ELECFREAKS Cutebot robot, challenges and lessons.">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<!-- If a school filter blocks Google Fonts, the page falls back to the system font; everything else is served from this site. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
 /* Layout: a workbench. Left = test bench (arena + micro:bits + tools), right = block editor with an optional lesson rail. Stacks on phones. */
@@ -201,6 +202,38 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .console { font-size: 13px; background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); border-radius: 8px; padding: 10px 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: space-between; line-height: 1.45; }
 .console > div { flex: 1; min-width: 200px; }
 
+/* difficulty labels */
+.lvl { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; margin-left: 8px; vertical-align: 1px; background: var(--chip); color: var(--muted); }
+.lvl-beginner { background: var(--good-soft); color: var(--good); }
+.lvl-intermediate { background: var(--info-soft); color: var(--info); }
+.lvl-advanced { background: var(--warn-soft); color: var(--warn); }
+.menu button[data-ex] { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+/* challenge hints */
+.cs-hints { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; margin-top: 4px; padding-top: 6px; border-top: 1px solid rgba(11,143,47,.25); }
+.cs-hints p { margin: 0; color: var(--ink); line-height: 1.45; }
+/* progress page */
+.pg-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pg-sum > div { border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; display: flex; flex-direction: column; font-variant-numeric: tabular-nums; color: var(--muted); }
+.pg-sum b { font-size: 24px; color: var(--ink); line-height: 1.1; }
+.pg-sum span { font-size: 12px; }
+.pg-tip { margin: 0; padding: 10px 12px; border-radius: var(--r); background: var(--accent-soft); font-size: 14px; }
+.pg-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pg-cols section { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.pg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pg-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+.pg-name { display: flex; flex-direction: column; min-width: 0; }
+.pg-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+.pg-bar { flex-basis: 100%; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.pg-bar i { display: block; height: 100%; background: var(--accent); }
+@media (max-width: 640px) { .pg-cols { grid-template-columns: 1fr; } .pg-sum b { font-size: 20px; } }
+/* first-visit tour */
+.tour { position: fixed; inset: 0; z-index: 220; }
+.tour-spot { position: fixed; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(8,12,10,.55); outline: 3px solid #ffd84a; pointer-events: none; transition: all .2s ease; }
+.tour-box { position: fixed; background: var(--panel); color: var(--ink); border-radius: 12px; padding: 14px 16px; box-shadow: 0 16px 40px rgba(0,0,0,.35); display: flex; flex-direction: column; gap: 10px; }
+.tour-box b { font-size: 16px; display: block; margin-top: 2px; }
+.tour-box p { margin: 4px 0 0; line-height: 1.5; font-size: 14px; }
+.tour-actions { display: flex; justify-content: space-between; gap: 8px; }
+
 /* popovers */
 .popwrap { position: relative; }
 .pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 120; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.22); padding: 6px; min-width: 240px; display: flex; flex-direction: column; }
@@ -342,7 +375,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
   <main class="body">
     <section class="sim" aria-label="Simulator">
       <div class="simbar">
-        <button class="btn run" id="btnRun"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg><span>Run</span></button>
+        <button class="btn run" id="btnRun" aria-keyshortcuts="Space"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg><span>Run</span></button>
         <button class="btn" id="btnReset" title="Stop and put the robot back at the start"><svg viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 1-4.6 3H1.6A6.5 6.5 0 1 0 3.3 3.4L2 2v4h4L4.4 4.4A5 5 0 0 1 8 3z" fill="currentColor"/></svg>Reset</button>
         <select id="mapSel" aria-label="Arena">
           <option value="track">Line track</option>
@@ -537,6 +570,14 @@ button, select, input, textarea { font: inherit; color: inherit; }
   <div id="tBody"></div>
 </section>
 
+<div class="tour" id="tour" hidden role="dialog" aria-modal="true" aria-label="Quick tour">
+  <div class="tour-spot" id="tourSpot"></div>
+  <div class="tour-box" id="tourBox">
+    <div id="tourText"></div>
+    <div class="tour-actions"><button class="btn small" id="tourSkip">Skip the tour</button><button class="btn run small" id="tourNext">Next</button></div>
+  </div>
+</div>
+
 <div class="modal" id="modal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mTitle">
     <h2 id="mTitle"></h2>
@@ -545,10 +586,10 @@ button, select, input, textarea { font: inherit; color: inherit; }
   </div>
 </div>
 
-<script src="https://unpkg.com/blockly@11.2.1/blockly_compressed.js"></script>
-<script src="https://unpkg.com/blockly@11.2.1/blocks_compressed.js"></script>
-<script src="https://unpkg.com/blockly@11.2.1/javascript_compressed.js"></script>
-<script src="https://unpkg.com/blockly@11.2.1/msg/en.js"></script>
+<script src="vendor/blockly/blockly_compressed.js"></script>
+<script src="vendor/blockly/blocks_compressed.js"></script>
+<script src="vendor/blockly/javascript_compressed.js"></script>
+<script src="vendor/blockly/msg/en.js"></script>
 <script src="js/data.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/runtime.js"></script>

@@ -17,8 +17,9 @@ After you edit the source files, run `python3 tools/build-site.py` to rebuild `d
 Edit the source files in the project root (`index.html`, `js/`, `media/`), not the copies in `docs/`.
 The root `index.html` is written for claude.ai artifacts (no `<!doctype>`/`<head>`); the build adds those.
 
-The page loads Blockly 11.2.1 from unpkg.com and fonts from Google Fonts, so students need internet access.
-Everything else runs in the browser. There is no server and no student accounts.
+Everything the page needs is served from the site itself, including the Blockly 11.2.1 block editor (in `vendor/blockly/`),
+so school web filters that block outside sites don't break it. The only outside request is the Lexend font from Google Fonts;
+if that is blocked, the page uses the system font. There is no server and no student accounts.
 
 ## How students turn in work
 
@@ -75,12 +76,13 @@ micro:bit libraries and the ELECFREAKS Cutebot and NeoPixel extensions.
 | `js/content.js` | Examples, challenges, lessons |
 | `js/app.js` | User interface, turn-in, teacher panel |
 | `media/` | Icons used by the block editor (trash can, dropdown arrows) |
+| `vendor/blockly/` | The Blockly block editor, copied unchanged from npm (Apache License 2.0) |
 | `tools/build-site.py` | Builds the GitHub Pages copy in `docs/` |
 | `docs/` | The built site that GitHub Pages serves. Don't edit it by hand. |
 
 ## Credits
 
-* Block editor: [Blockly](https://github.com/google/blockly) by Google (Apache License 2.0), loaded from unpkg.com.
+* Block editor: [Blockly](https://github.com/google/blockly) by Google (Apache License 2.0), bundled in `vendor/blockly/`.
   The files in `media/` are Blockly's own icons.
 * Cutebot block names and behaviour follow the [ELECFREAKS pxt-cutebot extension](https://github.com/elecfreaks/pxt-cutebot).
 * micro:bit block names follow [Microsoft MakeCode for micro:bit](https://makecode.microbit.org/).
@@ -88,4 +90,4 @@ micro:bit libraries and the ELECFREAKS Cutebot and NeoPixel extensions.
 
 ## License
 
-Released under the [MIT License](LICENSE) by Bob Smitka. The Blockly icons in `media/` remain under the Apache License 2.0; see [NOTICE](NOTICE).
+Released under the [MIT License](LICENSE) by Bob Smitka. Blockly (`vendor/blockly/`) and its icons in `media/` remain under the Apache License 2.0; see [NOTICE](NOTICE).

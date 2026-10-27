@@ -129,11 +129,29 @@ function openProject(id, skipSave) {
   pindex.current = id; loadProject(d); save();
   return true;
 }
+const TRASH_DAYS = 7;
+/** Moves a project to Recently deleted. Its data is kept for a week so it can be restored. */
 function deleteProject(id) {
   const i = pindex.list.findIndex(x => x.id === id); if (i < 0) return;
-  pindex.list.splice(i, 1); try { localStorage.removeItem(pkey(id)); } catch (e) {}
+  if (id === pindex.current) save();
+  const [entry] = pindex.list.splice(i, 1);
+  (pindex.trash ||= []).unshift({ ...entry, deletedAt: Date.now() });
   if (pindex.current === id) { pindex.current = null; if (pindex.list.length) openProject(pindex.list[0].id, true); else startNewProject(blankProject()); }
   writeJSON(PINDEX, pindex);
+}
+function restoreProject(id) {
+  const i = (pindex.trash || []).findIndex(x => x.id === id); if (i < 0) return;
+  const [entry] = pindex.trash.splice(i, 1); delete entry.deletedAt;
+  pindex.list.unshift(entry); writeJSON(PINDEX, pindex);
+}
+function purgeProject(id) {
+  pindex.trash = (pindex.trash || []).filter(x => x.id !== id);
+  try { localStorage.removeItem(pkey(id)); } catch (e) {}
+  writeJSON(PINDEX, pindex);
+}
+function purgeOldTrash() {
+  const cutoff = Date.now() - TRASH_DAYS * 864e5;
+  for (const t of (pindex.trash || []).slice()) if (t.deletedAt < cutoff) purgeProject(t.id);
 }
 const blankProject = (name = 'Untitled') => ({ name, programs: { robot: xmlToState(L.BLANK), remote: null }, arena: { map: L.arena.map, edits: {} } });
 function exampleProject(key) { const ex = L.EXAMPLES[key]; return { name: ex.name, programs: { robot: xmlToState(ex.xml), remote: ex.remote ? xmlToState(ex.remote) : null }, arena: { map: ex.map, edits: {} } }; }
@@ -141,7 +159,16 @@ function openProjects() {
   save();
   const rows = pindex.list.map(p => `<li class="prow${p.id === pindex.current ? ' cur' : ''}"><div class="pname"><b>${esc(p.name || 'Untitled')}</b><span class="note">Changed ${esc(new Date(p.updated).toLocaleString())}</span></div>
     <div class="pacts">${p.id === pindex.current ? '<span class="badge pass">Open now</span>' : `<button class="btn small" data-open="${p.id}">Open</button>`}<button class="btn small" data-dup="${p.id}">Make a copy</button><button class="btn small" data-del="${p.id}">Delete</button></div></li>`).join('');
-  modal('My projects', `<div class="row-actions"><button class="btn run" id="pjNewBlank">New blank project</button><span class="note">Projects are saved in this browser. Rename a project in the name box at the top of the page.</span></div><ul class="plist">${rows}</ul>`, [['Close', () => {}]], true);
+  const trash = (pindex.trash || []).map(p => `<li class="prow trash"><div class="pname"><b>${esc(p.name || 'Untitled')}</b><span class="note">Deleted ${esc(new Date(p.deletedAt).toLocaleString())} · kept until ${esc(new Date(p.deletedAt + TRASH_DAYS * 864e5).toLocaleDateString())}</span></div>
+    <div class="pacts"><button class="btn small" data-restore="${p.id}">Restore</button><button class="btn small" data-purge="${p.id}">Delete forever</button></div></li>`).join('');
+  modal('My projects', `<div class="row-actions"><button class="btn run" id="pjNewBlank">New blank project</button><span class="note">Projects are saved in this browser. Rename a project in the name box at the top of the page.</span></div><ul class="plist">${rows}</ul>
+    ${trash ? `<span class="sec-label">Recently deleted</span><p class="note">Deleted projects are kept for ${TRASH_DAYS} days, then removed for good.</p><ul class="plist">${trash}</ul>` : ''}`, [['Close', () => {}]], true);
+  $('mBody').querySelectorAll('[data-restore]').forEach(b => b.onclick = () => { restoreProject(b.dataset.restore); openProjects(); toast('Project restored'); });
+  $('mBody').querySelectorAll('[data-purge]').forEach(b => b.onclick = () => {
+    if (b.dataset.armed) { purgeProject(b.dataset.purge); openProjects(); toast('Project deleted for good'); return; }
+    b.dataset.armed = '1'; b.textContent = 'Click again: this can’t be undone'; b.classList.add('danger');
+    setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Delete forever'; b.classList.remove('danger'); } }, 3500);
+  });
   $('pjNewBlank').onclick = () => { closeModal(); startNewProject(blankProject()); toast('New project. Your other projects are in My projects.'); };
   $('mBody').querySelectorAll('[data-open]').forEach(b => b.onclick = () => { closeModal(); openProject(b.dataset.open); });
   $('mBody').querySelectorAll('[data-dup]').forEach(b => b.onclick = () => {
@@ -149,9 +176,7 @@ function openProjects() {
     closeModal(); startNewProject({ ...JSON.parse(JSON.stringify(d)), name: (d.name || 'Untitled') + ' (copy)' }); toast('Made a copy. You are now working on the copy.');
   });
   $('mBody').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
-    if (b.dataset.armed) { deleteProject(b.dataset.del); openProjects(); toast('Project deleted'); return; }
-    b.dataset.armed = '1'; b.textContent = 'Click again to delete'; b.classList.add('danger');
-    setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Delete'; b.classList.remove('danger'); } }, 3500);
+    deleteProject(b.dataset.del); openProjects(); toast('Moved to Recently deleted. You can restore it for 7 days.');
   });
 }
 
@@ -458,10 +483,11 @@ function updateTurnBadge() {
   $('btnTurnIn').title = n ? `${n} challenge proof${n === 1 ? '' : 's'} not turned in yet` : 'Turn in your work';
 }
 function roundRectPath(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
-function tag(c, x, y, text) {
+function tag(c, x, y, text, color = 'rgba(11,110,40,.92)') {
   c.save(); c.font = '600 2.4px Lexend, system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
   const w = c.measureText(text).width + 2.4, h = 3.6;
-  c.fillStyle = 'rgba(11,110,40,.92)'; roundRectPath(c, x - w / 2, y - h / 2, w, h, 1.4); c.fill();
+  x = Math.max(w / 2 + .5, Math.min(L.W - w / 2 - .5, x)); y = Math.max(h / 2 + .5, Math.min(L.H - h / 2 - .5, y));
+  c.fillStyle = color; roundRectPath(c, x - w / 2, y - h / 2, w, h, 1.4); c.fill();
   c.fillStyle = '#fff'; c.fillText(text, x, y + .1); c.restore();
 }
 L.drawOverlay = (c, s) => {
@@ -469,7 +495,15 @@ L.drawOverlay = (c, s) => {
   if (challenge.draw) challenge.draw(c, s, crun.st);
   const marks = typeof challenge.marks === 'function' ? challenge.marks(crun.st) : challenge.marks;
   if (marks && crun.state !== 'running') marks.forEach(([x, y, t]) => tag(c, x, y, t));
+  if (crun.state === 'fail' && crun.failAt) {          // show where the attempt went wrong
+    const { x, y } = crun.failAt;
+    c.save(); c.strokeStyle = '#d33a12'; c.lineWidth = .7; c.lineCap = 'round';
+    c.beginPath(); c.arc(x, y, 3.2, 0, 7); c.stroke();
+    c.beginPath(); c.moveTo(x - 1.6, y - 1.6); c.lineTo(x + 1.6, y + 1.6); c.moveTo(x + 1.6, y - 1.6); c.lineTo(x - 1.6, y + 1.6); c.stroke(); c.restore();
+    tag(c, x, y - 6, 'Went wrong here', 'rgba(190,45,10,.95)');
+  }
 };
+const hintsShown = {};      // challenge id -> how many hints the student has opened
 function enterArena(ch) {
   L.pristine = true; L.startOverride = ch.start || null;
   setMap(ch.map, true);
@@ -530,11 +564,14 @@ function renderChallengeStrip(force) {
   const ch = challenge, s = crun.state;
   const badge = s === 'pass' ? '<span class="badge pass">Passed</span>' : s === 'fail' ? '<span class="badge fail">Not yet</span>' : s === 'running' ? '<span class="badge run">Running</span>' : s === 'stopped' ? '<span class="badge">Stopped</span>' : '<span class="badge">Ready</span>';
   const prog = ch.progress ? ch.progress(crun.st) : '';
-  const key = [s, crun.t.toFixed(1), prog, crun.msg, !!replayOf].join('|');
+  const nh = hintsShown[ch.id] || 0, hints = ch.hints || [];
+  const key = [s, crun.t.toFixed(1), prog, crun.msg, !!replayOf, nh].join('|');
   if (key === stripKey && !force) return; stripKey = key;
   el.innerHTML = `<div class="cs-top"><b>${replayOf ? 'Replay: ' + esc(replayOf) + ' · ' : ''}${esc(ch.title)}</b>${badge}${L.real.active ? '<span class="badge run">Real-world</span>' : ''}<span class="cs-time">${crun.t.toFixed(1)} s / ${ch.limit} s</span><button class="btn small" id="btnExitCh">${replayOf ? 'Close replay' : 'Exit challenge'}</button></div>
-    <div class="cs-prog">${esc(prog)}${crun.msg ? ' · <b>' + esc(crun.msg) + '</b>' : ''}${!replayOf && (s === 'fail' || s === 'stopped') ? ' Press Run to try again.' : ''}</div>`;
+    <div class="cs-prog">${esc(prog)}${crun.msg ? ' · <b>' + esc(crun.msg) + '</b>' : ''}${!replayOf && (s === 'fail' || s === 'stopped') ? ' Press Run to try again.' : ''}</div>
+    ${!replayOf && hints.length && s !== 'running' ? `<div class="cs-hints">${hints.slice(0, nh).map((h, i) => `<p><b>Hint ${i + 1}:</b> ${esc(h)}</p>`).join('')}${nh < hints.length ? `<button class="btn small" id="btnHint">${nh ? 'Another hint' : 'Need a hint?'}</button>` : ''}</div>` : ''}`;
   $('btnExitCh').onclick = () => { const back = !!replayOf; exitChallenge(); if (back) openTeacher(); };
+  if ($('btnHint')) $('btnHint').onclick = () => { hintsShown[ch.id] = nh + 1; renderChallengeStrip(true); };
   // the goal sits on the arena until the run starts
   const showCard = !replayOf && s !== 'running' && s !== 'pass';
   card.hidden = !showCard;
@@ -543,7 +580,7 @@ function renderChallengeStrip(force) {
 function renderChallengeList() {
   $('chList').innerHTML = L.CHALLENGES.map(ch => {
     const p = proofs[ch.id];
-    return `<li class="ch-row${challenge && challenge.id === ch.id ? ' active' : ''}"><div><b>${esc(ch.title)}</b><span class="ch-map">${esc(L.MAPS[ch.map].name)}</span><p>${esc(ch.goal)}</p></div>
+    return `<li class="ch-row${challenge && challenge.id === ch.id ? ' active' : ''}"><div><b>${esc(ch.title)}</b>${ch.level ? `<span class="lvl lvl-${ch.level.toLowerCase()}">${esc(ch.level)}</span>` : ''}<span class="ch-map">${esc(L.MAPS[ch.map].name)}</span><p>${esc(ch.goal)}</p></div>
       <div class="ch-side">${p ? `<span class="badge pass">Best ${p.t} s${p.real ? ' · real-world' : ''}</span>` : '<span class="badge">Not passed</span>'}<button class="btn small" data-ch="${ch.id}">${challenge && challenge.id === ch.id ? 'Restart' : 'Start'}</button></div></li>`;
   }).join('');
   $('chList').querySelectorAll('button[data-ch]').forEach(b => b.onclick = () => armChallenge(b.dataset.ch));
@@ -724,6 +761,65 @@ function resultsCSV() {
   return rows.join('\n') + '\n';
 }
 
+/* ---------- my progress ---------- */
+function openProgress() {
+  const lessonRows = L.LESSONS.map(ls => {
+    const st = lessonState[ls.id], done = st && st.done ? st.done.length : 0, all = ls.steps.length;
+    const status = done >= all ? '<span class="badge pass">Finished</span>' : done ? `<span class="badge run">${done} of ${all} steps</span>` : '<span class="badge">Not started</span>';
+    return `<li class="pg-row"><span class="pg-name"><b>${esc(ls.title)}</b><span class="note">${esc(ls.level)}</span></span>${status}<span class="pg-bar"><i style="width:${Math.round(done / all * 100)}%"></i></span></li>`;
+  }).join('');
+  const chRows = L.CHALLENGES.map(ch => {
+    const p = proofs[ch.id], turnedIn = p && turned[p.c] >= p.at;
+    const status = !p ? '<span class="badge">Not passed</span>' : `<span class="badge pass">Passed · ${p.t} s${p.real ? ' · real-world' : ''}</span>${turnedIn ? '<span class="badge">Turned in</span>' : '<span class="badge run">Not turned in</span>'}`;
+    return `<li class="pg-row"><span class="pg-name"><b>${esc(ch.title)}</b><span class="note">${esc(ch.level || '')}</span></span><span class="pg-badges">${status}</span></li>`;
+  }).join('');
+  const nextLesson = L.LESSONS.find(ls => { const st = lessonState[ls.id]; return !st || !st.done || st.done.length < ls.steps.length; });
+  const nextCh = L.CHALLENGES.find(ch => !proofs[ch.id]);
+  const pend = notTurnedIn().length;
+  const tip = pend ? `You have ${pend} passed challenge${pend === 1 ? '' : 's'} that ${pend === 1 ? 'is' : 'are'} not turned in yet.`
+    : nextCh ? `Try the “${nextCh.title}” challenge next.` : nextLesson ? `Try the “${nextLesson.title}” lesson next.` : 'You have finished every lesson and challenge. Try them in real-world mode!';
+  const passedCount = Object.keys(proofs).length, lessonsDone = L.LESSONS.filter(ls => { const st = lessonState[ls.id]; return st && st.done && st.done.length >= ls.steps.length; }).length;
+  const actions = [['Close', () => {}]];
+  if (pend) actions.push(['Turn in now', () => { openTurnIn(); return false; }, true]);
+  else if (nextCh) actions.push([`Start “${nextCh.title}”`, () => { armChallenge(nextCh.id); showTab('challenges'); }, true]);
+  else if (nextLesson) actions.push([`Start “${nextLesson.title}”`, () => { setLessons(true); startLesson(nextLesson.id); }, true]);
+  modal('My progress', `<div class="pg-sum"><div><b>${lessonsDone}</b> of ${L.LESSONS.length}<span>lessons finished</span></div><div><b>${passedCount}</b> of ${L.CHALLENGES.length}<span>challenges passed</span></div><div><b>${pend}</b><span>not turned in</span></div></div>
+    <p class="pg-tip"><b>Next:</b> ${esc(tip)}</p>
+    <div class="pg-cols"><section><span class="sec-label">Lessons</span><ul class="pg-list">${lessonRows}</ul></section><section><span class="sec-label">Challenges</span><ul class="pg-list">${chRows}</ul></section></div>
+    <p class="note">Progress is saved in this browser.</p>`, actions, true);
+}
+
+/* ---------- first-visit tour ---------- */
+const TOUR = 'cutebot-lab-tour';
+const TOUR_STEPS = [
+  { el: '.blocklyToolboxDiv', title: 'Blocks', text: 'Open a category and drag blocks into your program. Use the search box above to find a block by name.' },
+  { el: '#blockly', title: 'Your program', text: 'Blocks inside “on start” run once. Blocks inside “forever” repeat. Drag blocks to the trash can to delete them.' },
+  { el: '#btnRun', title: 'Run', text: 'Press Run (or the space bar) to try your program on the virtual Cutebot. Press it again to stop.' },
+  { el: '.arena-wrap', title: 'The arena', text: 'Watch the robot drive here. Drag it to move it, and choose other arenas from the list above.' },
+  { el: '#btnLessons', title: 'Lessons', text: 'New to this? Start with a lesson. It walks you through step by step.' },
+  { el: '#simTabs [data-tab="challenges"]', title: 'Challenges and turning in', text: 'Pass challenges, then press Turn in to send your work to your teacher.' }
+];
+let tourStep = -1;
+function startTour() { closeModal(); tourStep = 0; renderTour(); }
+function endTour() { tourStep = -1; $('tour').hidden = true; writeJSON(TOUR, 1); }
+function renderTour() {
+  const step = TOUR_STEPS[tourStep], target = document.querySelector(step.el);
+  if (!target || !target.getClientRects().length) { if (tourStep < TOUR_STEPS.length - 1) { tourStep++; return renderTour(); } return endTour(); }
+  target.scrollIntoView({ block: 'nearest' });
+  const r = target.getBoundingClientRect(), pad = 6, vw = innerWidth, vh = innerHeight;
+  const spot = $('tourSpot'), box = $('tourBox');
+  $('tour').hidden = false;
+  Object.assign(spot.style, { left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: Math.min(r.height, vh) + pad * 2 + 'px' });
+  $('tourText').innerHTML = `<span class="sec-label">${tourStep + 1} of ${TOUR_STEPS.length}</span><b>${esc(step.title)}</b><p>${esc(step.text)}</p>`;
+  $('tourNext').textContent = tourStep === TOUR_STEPS.length - 1 ? 'Done' : 'Next';
+  const bw = Math.min(320, vw - 32), bh = box.offsetHeight || 150;
+  let left = r.right + 14, top = r.top;
+  if (left + bw > vw - 16) { left = Math.max(16, Math.min(vw - bw - 16, r.left)); top = r.bottom + 14; }
+  if (top + bh > vh - 16) top = Math.max(16, r.top - bh - 14);
+  Object.assign(box.style, { left: left + 'px', top: Math.max(16, top) + 'px', width: bw + 'px' });
+  $('tourNext').focus();
+}
+
 /* ---------- send to real robot ---------- */
 function openSend() {
   const robotCode = genTS('robot'), remote = hasCode('remote') ? genTS('remote') : null;
@@ -889,6 +985,7 @@ function init() {
     const id = pindex.list.some(x => x.id === pindex.current) ? pindex.current : pindex.list[0] && pindex.list[0].id;
     if (!id || !openProject(id, true)) { pindex.current = null; startNewProject(exampleProject('linefollow')); }
   }
+  purgeOldTrash();
   if (innerWidth < 700) setTimeout(() => ws.zoomToFit(), 50);
 
   let saveT = 0, autoT = 0;
@@ -969,11 +1066,15 @@ function init() {
   document.querySelectorAll('#devSeg button').forEach(b => b.onclick = () => { if (b.dataset.dev !== proj.active) showDevice(b.dataset.dev); });
   $('projName').onchange = save;
   popover('btnMenu', 'menuPop');
+  const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
   $('menuPop').innerHTML = `<button role="menuitem" data-act="projects" data-close>My projects…</button>
     <button role="menuitem" data-act="new" data-close>New blank project</button>
     <button role="menuitem" data-act="file" data-close>Save or open a file…</button>
     <div class="menu-label">Examples (open as a new project)</div>
-    ${Object.entries(L.EXAMPLES).filter(([k]) => k !== 'blank').map(([k, ex]) => `<button role="menuitem" data-ex="${k}" data-close>${esc(ex.name)}</button>`).join('')}
+    ${Object.entries(L.EXAMPLES).filter(([k]) => k !== 'blank').sort((a, b) => LEVELS.indexOf(a[1].level) - LEVELS.indexOf(b[1].level)).map(([k, ex]) => `<button role="menuitem" data-ex="${k}" data-close><span>${esc(ex.name)}</span>${ex.level ? `<span class="lvl lvl-${ex.level.toLowerCase()}">${esc(ex.level)}</span>` : ''}</button>`).join('')}
+    <div class="menu-sep"></div>
+    <button role="menuitem" data-act="progress" data-close>My progress…</button>
+    <button role="menuitem" data-act="tour" data-close>Show the tour again</button>
     <div class="menu-sep"></div>
     <button role="menuitem" data-act="teacher" data-close>Teacher: check student work…</button>`;
   $('menuPop').addEventListener('click', (e) => {
@@ -983,6 +1084,8 @@ function init() {
     else if (b.dataset.act === 'new') { startNewProject(blankProject()); toast('New project. Your other projects are in My projects.'); }
     else if (b.dataset.act === 'file') openFileModal();
     else if (b.dataset.act === 'teacher') openTeacher();
+    else if (b.dataset.act === 'progress') openProgress();
+    else if (b.dataset.act === 'tour') startTour();
   });
   $('btnLessons').onclick = () => setLessons(!ui.lessons);
   $('btnLessonsClose').onclick = () => setLessons(false);
@@ -1004,6 +1107,18 @@ function init() {
   $('tabJs').onclick = () => showView(true);
   $('btnCopyCode').onclick = () => copyText(L.generate(ws, true));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
+  // space bar runs and stops, unless the student is typing or working in the blocks
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== ' ' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (!$('modal').hidden || !$('teacher').hidden || !$('tour').hidden) return;
+    if (t.closest && (t.closest('input, textarea, select, button, [contenteditable], .blocklyWidgetDiv, .blocklyDropDownDiv') || t.closest('#blockly'))) return;
+    e.preventDefault(); $('btnRun').click();
+  });
+  $('tourNext').onclick = () => { if (tourStep >= TOUR_STEPS.length - 1) endTour(); else { tourStep++; renderTour(); } };
+  $('tourSkip').onclick = endTour;
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('tour').hidden) endTour(); });
+  addEventListener('resize', () => { if (tourStep >= 0) renderTour(); });
 
   // teacher panel
   $('tClose').onclick = closeTeacher;
@@ -1037,12 +1152,13 @@ function init() {
   matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', retheme);
   new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   if (window.claude && window.claude.use) window.claude.use('downloads').then(d => { downloads = d; }).catch(() => {});
+  if (!readJSON(TOUR, 0)) setTimeout(() => { if ($('modal').hidden && tourStep < 0) startTour(); }, 900);
   L.ready = true;
 }
 
 const fontsReady = document.fonts && document.fonts.ready ? Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]) : Promise.resolve();
 fontsReady.then(init);
-L.app = { run, resetAll, openExample, armChallenge, exitChallenge, showDevice, verifyProof, addFiles, subs, proofs, turnInText, openTurnIn, openTeacher, openProjects, startNewProject, doSearch,
+L.app = { openProgress, startTour, endTour, deleteProject, restoreProject, get trash() { return pindex.trash || []; }, run, resetAll, openExample, armChallenge, exitChallenge, showDevice, verifyProof, addFiles, subs, proofs, turnInText, openTurnIn, openTeacher, openProjects, startNewProject, doSearch,
   startLessonNow: (id) => { lesson = L.LESSONS.find(x => x.id === id); lessonState[id] ||= { step: 0, done: [] }; setLessons(true); },
   genTS, projectData, loadProject, get pindex() { return pindex; }, get challenge() { return challenge; }, get crun() { return crun; }, data, Q };
 })();

@@ -155,6 +155,41 @@ L.CHALLENGES = [
     draw: drawFlag, marks: [[FLAG.x + 7, FLAG.y - 3, 'Finish here']], progress: (st) => `Radio messages: ${st.radio || 0}` }
 ];
 
+// difficulty labels and step-by-step hints, shown one at a time when a student asks
+const CHALLENGE_EXTRA = {
+  flag: { level: 'Intermediate', hints: [
+    'Use the sonar: when something is close in front of the robot, back up a little and turn.',
+    'Turn in small steps, then check the sonar again before driving on.',
+    'The flag is on the far right. If the robot always turns the same way it can get stuck in a corner, so try turning the other way sometimes.'] },
+  park: { level: 'Beginner', hints: [
+    'Drive forward while the sonar reads more than about 10 cm, then stop.',
+    'Use “stop car immediately” to stop, and slow down as you get closer.',
+    'The robot rolls on for a moment after the motors stop, so stop a little early, at about 8 cm.'] },
+  square: { level: 'Beginner', hints: [
+    'Use “repeat 4 times” with one side and one corner inside it.',
+    'If the corners are too wide or too tight, change the turn time a little: try between 0.45 and 0.55 seconds.',
+    'The robot has to stop where it started, so make all four sides the same length.'] },
+  laps: { level: 'Intermediate', hints: [
+    'Use “tracking state is” with three choices: both on the line, only right on, only left on.',
+    'Slower is steadier. Try speeds between 30 and 40 %.',
+    'When turning, slow the inside wheel down instead of stopping it, for example 40 and 10.'] },
+  curvy: { level: 'Advanced', hints: [
+    'Start with a program that passes Three laps.',
+    'The curves are tighter than on the oval, so try a lower speed.',
+    'Make the turns stronger: slow the inside wheel more, or run it slightly backwards.'] },
+  sumo: { level: 'Intermediate', hints: [
+    'Drive forward until a line sensor sees the black edge of the ring.',
+    'When a sensor sees the edge, back up first, then turn, then drive on.',
+    'Keep moving: the robot must drive at least 100 cm in the 30 seconds.'] },
+  remote: { level: 'Advanced', hints: [
+    'Program the Remote micro:bit to send a number by radio when you press each button.',
+    'Program the Cutebot to move when it receives each number. Both micro:bits need the same radio group.',
+    'Use short moves (about 0.25 s) so you can steer around the boxes one step at a time.'] }
+};
+for (const ch of L.CHALLENGES) Object.assign(ch, CHALLENGE_EXTRA[ch.id] || {});
+const EXAMPLE_LEVEL = { square: 'Beginner', buttons: 'Beginner', linefollow: 'Intermediate', avoid: 'Intermediate', ir: 'Intermediate', sumo: 'Intermediate', data: 'Intermediate', radio: 'Advanced' };
+for (const [k, ex] of Object.entries(L.EXAMPLES)) ex.level = EXAMPLE_LEVEL[k] || '';
+
 // the order students see (also the teacher table's column order and the "Next challenge" order)
 const CHALLENGE_ORDER = ['flag', 'park', 'square', 'laps', 'curvy', 'sumo', 'remote'];
 L.CHALLENGES.sort((a, b) => CHALLENGE_ORDER.indexOf(a.id) - CHALLENGE_ORDER.indexOf(b.id));
@@ -168,7 +203,7 @@ L.makeChallengeRun = function (ch) {
     run.n++; run.t = Math.round(run.n * dt * 1000) / 1000;     // exact step count, so a replay reports the identical time
     let r = ch.tick(run.st, dt, run.t);
     if (!r && run.t >= ch.limit) r = ['fail', 'Time is up.'];
-    if (r) { run.state = r[0]; run.msg = r[1] || ''; }
+    if (r) { run.state = r[0]; run.msg = r[1] || ''; if (r[0] === 'fail') run.failAt = { x: bot.x, y: bot.y }; }
     return r;
   };
   return run;
