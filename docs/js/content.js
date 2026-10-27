@@ -191,7 +191,7 @@ const EXAMPLE_LEVEL = { square: 'Beginner', buttons: 'Beginner', linefollow: 'In
 for (const [k, ex] of Object.entries(L.EXAMPLES)) ex.level = EXAMPLE_LEVEL[k] || '';
 
 // the order students see (also the teacher table's column order and the "Next challenge" order)
-const CHALLENGE_ORDER = ['flag', 'park', 'square', 'laps', 'curvy', 'sumo', 'remote'];
+const CHALLENGE_ORDER = ['square', 'park', 'flag', 'laps', 'sumo', 'curvy', 'remote'];
 L.CHALLENGES.sort((a, b) => CHALLENGE_ORDER.indexOf(a.id) - CHALLENGE_ORDER.indexOf(b.id));
 
 /** One attempt at a challenge. The same object runs live runs and teacher replays, so the rules can't drift apart. */
