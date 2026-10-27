@@ -844,22 +844,47 @@ function openSend() {
 /* ---------- files ---------- */
 function openFileModal() {
   const text = JSON.stringify(projectData());
-  modal('Save or open a file', `<p class="note" style="font-size:14px">Projects are saved in this browser automatically (see My projects). To move a project to another computer, download it as a file or copy its text. Opening a file adds it as a new project.</p>
-    <div class="row-actions"><button class="btn" id="pjDownload">Download this project</button><label class="btn" for="pjFile">Open a project file</label><input type="file" id="pjFile" accept=".json,.txt,application/json" hidden></div>
+  modal('Save or open a file', `<p class="note" style="font-size:14px">Projects are saved in this browser automatically (see My projects). To move a project to another computer, download it as a file or copy its text. Opening a file adds it as a new project. Opening a turn-in file also brings back its challenge proofs.</p>
+    <div class="row-actions"><button class="btn" id="pjDownload">Download this project</button><label class="btn" for="pjFile">Open a project or turn-in file</label><input type="file" id="pjFile" accept=".json,.txt,application/json" hidden></div>
     <textarea id="projText" spellcheck="false" aria-label="Project text"></textarea>`,
     [['Copy project text', () => { copyText($('projText').value, $('projText')); return false; }], ['Open pasted text', () => tryLoad($('projText').value), true]]);
   $('projText').value = text;
   $('pjDownload').onclick = () => saveFile(safeName($('projName').value) + '.json', text);
   $('pjFile').onchange = (e) => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { if (tryLoad(r.result) !== false) closeModal(); }; r.readAsText(f); };
 }
+/** A turn-in file doubles as a backup: its challenge proofs come back too, keeping the better time for each.
+    (Restoring proofs can't fake a result: the teacher replays every proof from the file that is handed in.) */
+function restoreProofs(list) {
+  let n = 0;
+  for (const p of Array.isArray(list) ? list : []) {
+    const ok = p && L.CHALLENGES.some(c => c.id === p.c) && typeof p.t === 'number' && typeof p.steps === 'number' && typeof p.seed === 'number'
+      && Array.isArray(p.inputs) && p.programs && p.programs.robot && typeof p.at === 'number';
+    if (!ok) continue;
+    const old = proofs[p.c];
+    if (!old || p.t < old.t || (p.t === old.t && p.real && !old.real)) { proofs[p.c] = p; n++; }
+    if (!turned[p.c] || turned[p.c] < p.at) turned[p.c] = p.at;   // it came from a turn-in file, so it was handed in
+    lessonFlags.passed.add(p.c);
+  }
+  writeJSON(PROOFS, proofs); writeJSON(TURNED, turned);
+  renderChallengeList(); updateTurnBadge();
+  return n;
+}
 function tryLoad(text) {
   try {
-    let s = JSON.parse(text);
-    if (s && s.kind === 'turn-in') s = s.project;                   // a turn-in file also opens as a project
+    const file = JSON.parse(text);
+    const turnIn = file && file.kind === 'turn-in';
+    const s = turnIn ? file.project : file;
     if (!s || (!s.programs && !s.ws)) throw new Error('missing blocks');
-    if (text === JSON.stringify(projectData())) { toast('That is the project you already have open.'); return; }
-    startNewProject(s); toast('Opened as a new project');
-  } catch (e) { toast('That is not a Cutebot Code Lab project. Copy the whole text and try again.'); return false; }
+    let restored = 0;
+    if (turnIn) {
+      restored = restoreProofs(file.proofs);
+      const st = readJSON(STUDENT, { name: '', period: '' });
+      if (!st.name && file.student && file.student.name) writeJSON(STUDENT, { name: String(file.student.name).slice(0, 60), period: String(file.student.period || '').slice(0, 30) });
+    }
+    if (text !== JSON.stringify(projectData())) startNewProject(s);
+    const n = turnIn ? (file.proofs || []).length : 0;
+    toast(turnIn ? `Opened the project and ${n ? `brought back ${n} challenge proof${n === 1 ? '' : 's'}` : 'found no challenge proofs'}${n && restored < n ? ` (${n - restored} you already had with an equal or better time)` : ''}.` : 'Opened as a new project');
+  } catch (e) { toast('That is not a Cutebot Code Lab project or turn-in file. Copy the whole text and try again.'); return false; }
 }
 
 /* ---------- examples ---------- */

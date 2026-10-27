@@ -33,7 +33,8 @@ if that is blocked, the page uses the system font. There is no server and no stu
   with their project and the proofs. They hand it in however you like (Google Classroom, email, a shared drive).
 
 Proofs and projects are kept in that browser's storage. If students switch computers or clear browser data, they
-should keep their turn-in or project files.
+should keep their turn-in or project files. Opening a turn-in file (Menu → Save or open a file → Open a project or
+turn-in file) brings back both the project and its challenge proofs, so the turn-in file doubles as a backup.
 
 ## How the teacher checks work
 
