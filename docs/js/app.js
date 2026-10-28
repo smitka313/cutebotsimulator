@@ -6,7 +6,7 @@ const { $, esc, bot, RT, devices } = L;
 
 let ws = null;
 const proj = { active: 'robot', programs: { robot: null, remote: null } };
-const ui = { speed: '1', real: false, highlight: true, sound: true, trail: true, tab: 'board', split: null, lessons: false, autorun: true, big: false, editArena: false };
+const ui = { speed: '1', real: false, highlight: true, sound: true, trail: true, tab: 'board', split: null, lessons: false, autorun: true, big: false, editArena: false, goalMin: false };
 const UISTORE = 'cutebot-lab-ui', PROOFS = 'cutebot-lab-proofs', LESSONSTORE = 'cutebot-lab-lessons', STUDENT = 'cutebot-lab-student', TURNED = 'cutebot-lab-turnedin';
 const PINDEX = 'cutebot-lab-projects', pkey = (id) => 'cutebot-lab-project-' + id;
 const readJSON = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch (e) { return d; } };
@@ -575,7 +575,11 @@ function renderChallengeStrip(force) {
   // the goal sits on the arena until the run starts
   const showCard = !replayOf && s !== 'running' && s !== 'pass';
   card.hidden = !showCard;
-  if (showCard) card.innerHTML = `<span class="sec-label">Goal</span><b>${esc(ch.goal)}</b><span class="gc-hint">${s === 'ready' ? 'Write your program, then press Run.' : 'Change your program and press Run to try again.'}</span>`;
+  card.classList.toggle('min', ui.goalMin);
+  if (showCard) card.innerHTML = ui.goalMin
+    ? `<button class="gc-toggle" id="gcToggle" aria-expanded="false" title="Show the goal">Goal ▾</button>`
+    : `<div class="gc-head"><span class="sec-label">Goal</span><button class="gc-toggle" id="gcToggle" aria-expanded="true" title="Hide the goal so you can see the robot">Hide ▴</button></div><b>${esc(ch.goal)}</b><span class="gc-hint">${s === 'ready' ? 'Write your program, then press Run.' : 'Change your program and press Run to try again.'}</span>`;
+  if (showCard) $('gcToggle').onclick = () => { ui.goalMin = !ui.goalMin; writeJSON(UISTORE, ui); renderChallengeStrip(true); };
 }
 function renderChallengeList() {
   $('chList').innerHTML = L.CHALLENGES.map(ch => {
@@ -821,25 +825,60 @@ function renderTour() {
 }
 
 /* ---------- send to real robot ---------- */
+/* ---------- open in MakeCode ----------
+   MakeCode opens a project carried in its own link: makecode.microbit.org/#project:<base64 of an LZMA-compressed
+   project file>. The project lists the extensions the code needs and an empty main.blocks, so MakeCode turns the
+   JavaScript into blocks when it opens. Nothing is uploaded anywhere. */
+const MAKECODE = 'https://makecode.microbit.org/';
+const CUTEBOT_EXT = ['cutebot', 'github:elecfreaks/pxt-cutebot#v6.2.6'];    // brings pxt-neopixel with it
+function makecodeProject(name, code, robot) {
+  const deps = { core: '*', radio: '*' };
+  if (robot) deps[CUTEBOT_EXT[0]] = CUTEBOT_EXT[1];
+  const files = {
+    'main.blocks': '', 'main.ts': code, 'README.md': ' ',
+    'pxt.json': JSON.stringify({ name, description: 'Made with Cutebot Code Lab', dependencies: deps, files: ['main.blocks', 'main.ts', 'README.md'], preferredEditor: 'blocksprj' }, null, 4)
+  };
+  return { meta: { cloudId: 'pxt/microbit', editor: 'blocksprj', name }, source: JSON.stringify(files, null, 2) };
+}
+function makecodeLinkAsync(name, code, robot) {
+  return new Promise((resolve, reject) => {
+    const lz = window.LZMA; if (!lz) return reject(new Error('LZMA library missing'));
+    lz.compress(JSON.stringify(makecodeProject(name, code, robot), null, 2), 7, (res, err) => {
+      if (err || !res) return reject(err || new Error('compress failed'));
+      let bin = ''; for (const b of res) bin += String.fromCharCode(b & 255);
+      resolve(MAKECODE + '#project:' + btoa(bin));
+    });
+  });
+}
 function openSend() {
-  const robotCode = genTS('robot'), remote = hasCode('remote') ? genTS('remote') : null;
-  modal('Run this on a real Cutebot', `<ol>
-      <li>Open <a href="https://makecode.microbit.org/" target="_blank" rel="noopener">makecode.microbit.org</a> and create a new project.</li>
-      <li>Click <b>Extensions</b> at the bottom of the block list, search for <b>cutebot</b>, and add the ELECFREAKS Cutebot extension. It brings the NeoPixel blocks for the underglow lights with it.</li>
-      <li>Switch to <b>JavaScript</b>, select all the code there, and paste this code over it.</li>
-      <li>Switch back to <b>Blocks</b> to check it, then click <b>Download</b> and copy the file to the micro:bit in the Cutebot.</li></ol>
+  const robotCode = genTS('robot'), remote = hasCode('remote') ? genTS('remote') : null, name = $('projName').value || 'Cutebot';
+  modal('Run this on a real Cutebot', `<p class="note big" style="padding:0">Opens MakeCode in a new tab with your program and the Cutebot extension already added.</p>
+    <div class="row-actions"><a class="btn run" id="mcRobot" target="_blank" rel="noopener" aria-disabled="true">Preparing…</a>
+    ${remote ? `<a class="btn" id="mcRemote" target="_blank" rel="noopener" aria-disabled="true">Preparing…</a>` : ''}</div>
+    <ol>
+      <li>In the new tab, wait for MakeCode to load your blocks. The first time, it takes a few seconds to fetch the extension.</li>
+      <li>Plug the micro:bit in with a USB cable. Click the <b>…</b> next to <b>Download</b>, choose <b>Connect device</b>, and pick your micro:bit. After that, <b>Download</b> sends the program straight to it.</li>
+      <li>Or click <b>Download</b> to save a .hex file and drag it onto the <b>MICROBIT</b> drive.</li></ol>
+    ${remote ? '<p class="note">The Remote micro:bit opens as a second MakeCode project. Flash it to the micro:bit you hold.</p>' : ''}
+    <details><summary class="note">If the button doesn’t work: copy the code instead</summary>
+    <p class="note">Open <a href="${MAKECODE}" target="_blank" rel="noopener">makecode.microbit.org</a>, start a new project, click <b>Extensions</b>, search for <b>cutebot</b> and add the ELECFREAKS Cutebot extension, switch to <b>JavaScript</b>, and paste this over the code there.</p>
     <div class="code-head"><b>Cutebot micro:bit</b><span><button class="btn small" id="cpRobot">Copy</button><button class="btn small" id="dlRobot">Download .txt</button></span></div>
     <textarea id="tsRobot" spellcheck="false" aria-label="Cutebot micro:bit code" readonly></textarea>
     ${remote ? `<div class="code-head"><b>Remote micro:bit</b><span><button class="btn small" id="cpRemote">Copy</button><button class="btn small" id="dlRemote">Download .txt</button></span></div>
-    <p class="note">Make a second MakeCode project for the micro:bit you hold. It needs no extension.</p>
-    <textarea id="tsRemote" spellcheck="false" aria-label="Remote micro:bit code" readonly></textarea>` : ''}
+    <p class="note">The Remote micro:bit needs no extension.</p>
+    <textarea id="tsRemote" spellcheck="false" aria-label="Remote micro:bit code" readonly></textarea>` : ''}</details>
     <p class="note">Cutebot guide: <a href="https://wiki.elecfreaks.com/en/microbit/microbit-smart-car/microbit-samrt-cutebot/" target="_blank" rel="noopener">ELECFREAKS wiki</a></p>`,
     [['Close', () => {}]], true);
+  const ready = (id, label) => (url) => { const a = $(id); if (!a) return; a.href = url; a.textContent = label; a.removeAttribute('aria-disabled'); };
+  const failed = (id) => () => { const a = $(id); if (a) { a.textContent = 'Can’t open MakeCode: copy the code below'; a.removeAttribute('href'); } };
+  makecodeLinkAsync(name, robotCode, true).then(ready('mcRobot', 'Open in MakeCode'), failed('mcRobot'));
+  if (remote) makecodeLinkAsync(name + ' remote', remote, false).then(ready('mcRemote', 'Open the Remote in MakeCode'), failed('mcRemote'));
   $('tsRobot').value = robotCode;
   $('cpRobot').onclick = () => copyText(robotCode, $('tsRobot'));
   $('dlRobot').onclick = () => saveFile(safeName($('projName').value) + ' - cutebot.txt', robotCode);
   if (remote) { $('tsRemote').value = remote; $('cpRemote').onclick = () => copyText(remote, $('tsRemote')); $('dlRemote').onclick = () => saveFile(safeName($('projName').value) + ' - remote.txt', remote); }
 }
+L.makecodeLinkAsync = makecodeLinkAsync;
 
 /* ---------- files ---------- */
 function openFileModal() {
@@ -964,7 +1003,7 @@ function initSplitter() {
 }
 
 /* ---------- settings ---------- */
-const SPEEDS = { '2': 2, '1': 1, '0.5': 0.5, '0.25': 0.25, '0.1': 0.1 };
+const SPEEDS = { '8': 8, '4': 4, '2': 2, '1': 1, '0.5': 0.5, '0.25': 0.25, '0.1': 0.1 };
 const SCALE = () => ui.big ? 1.05 : 0.85;
 function applyUI() {
   L.setSpeed(SPEEDS[ui.speed] || 1); $('speedSel').value = ui.speed;
@@ -1132,13 +1171,15 @@ function init() {
   $('tabJs').onclick = () => showView(true);
   $('btnCopyCode').onclick = () => copyText(L.generate(ws, true));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('modal').hidden) closeModal(); });
-  // space bar runs and stops, unless the student is typing or working in the blocks
+  // keys: space = run/stop, R = reset, + / − = zoom, F = follow the robot; never while typing or working in the blocks
   document.addEventListener('keydown', (e) => {
-    if (e.key !== ' ' || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    const keys = { ' ': 'btnRun', r: 'btnReset', R: 'btnReset', '+': 'zIn', '=': 'zIn', '-': 'zOutA', f: 'zFollow', F: 'zFollow' };
+    if (!keys[e.key] || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;
     if (!$('modal').hidden || !$('teacher').hidden || !$('tour').hidden) return;
     if (t.closest && (t.closest('input, textarea, select, button, [contenteditable], .blocklyWidgetDiv, .blocklyDropDownDiv') || t.closest('#blockly'))) return;
-    e.preventDefault(); $('btnRun').click();
+    const b = $(keys[e.key]); if (!b || b.disabled) return;
+    e.preventDefault(); b.click();
   });
   $('tourNext').onclick = () => { if (tourStep >= TOUR_STEPS.length - 1) endTour(); else { tourStep++; renderTour(); } };
   $('tourSkip').onclick = endTour;

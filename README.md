@@ -21,6 +21,12 @@ Everything the page needs is served from the site itself, including the Blockly 
 so school web filters that block outside sites don't break it. The only outside request is the Lexend font from Google Fonts;
 if that is blocked, the page uses the system font. There is no server and no student accounts.
 
+## Keyboard shortcuts
+
+Space runs and stops, **R** resets, **+** and **−** zoom the arena, and **F** follows the robot. They are ignored while
+typing or working in the blocks. Speeds run from step by step (⅒×) to Fastest 8×, and the challenge goal card can be
+folded with **Hide ▴** to see the robot.
+
 ## How students turn in work
 
 * **Real-world mode** is off by default, so beginners get a perfect robot. Switched on, the motors are slightly uneven, they
@@ -61,8 +67,10 @@ Known limits:
 
 ## Running the code on a real Cutebot
 
-**Send to real Cutebot** shows MakeCode JavaScript. In makecode.microbit.org, add the **cutebot** extension, switch
-to JavaScript, paste, switch back to Blocks, and download. The generated code is type-checked against MakeCode's
+**Send to real Cutebot** has an **Open in MakeCode** button. It opens makecode.microbit.org in a new tab with the
+program and the ELECFREAKS Cutebot extension already added (the project travels inside the link itself; nothing is
+uploaded). A Remote micro:bit program gets its own button. If the link is blocked, the same dialog still has the
+MakeCode JavaScript to copy: add the **cutebot** extension, switch to JavaScript, paste, switch back to Blocks, and download. The generated code is type-checked against MakeCode's
 micro:bit libraries and the ELECFREAKS Cutebot and NeoPixel extensions.
 
 ## Files
@@ -78,12 +86,14 @@ micro:bit libraries and the ELECFREAKS Cutebot and NeoPixel extensions.
 | `js/app.js` | User interface, turn-in, teacher panel |
 | `media/` | Icons used by the block editor (trash can, dropdown arrows) |
 | `vendor/blockly/` | The Blockly block editor, copied unchanged from npm (Apache License 2.0) |
+| `vendor/lzma/` | LZMA-JS 2.3.2, which packs the Open in MakeCode link (MIT License) |
 | `tools/build-site.py` | Builds the GitHub Pages copy in `docs/` |
 | `docs/` | The built site that GitHub Pages serves. Don't edit it by hand. |
 
 ## Credits
 
 * Block editor: [Blockly](https://github.com/google/blockly) by Google (Apache License 2.0), bundled in `vendor/blockly/`.
+* [LZMA-JS](https://github.com/LZMA-JS/LZMA-JS) 2.3.2 by Nathan Rugg (MIT License), bundled in `vendor/lzma/`.
   The files in `media/` are Blockly's own icons.
 * Cutebot block names and behaviour follow the [ELECFREAKS pxt-cutebot extension](https://github.com/elecfreaks/pxt-cutebot).
 * micro:bit block names follow [Microsoft MakeCode for micro:bit](https://makecode.microbit.org/).

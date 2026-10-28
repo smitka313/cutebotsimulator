@@ -94,7 +94,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .simbar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .btn { border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); border-radius: 8px; padding: 7px 11px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
 .btn:hover:not(:disabled) { border-color: var(--muted); }
-.btn:disabled { opacity: .45; cursor: default; }
+.btn:disabled, a.btn[aria-disabled="true"] { opacity: .45; cursor: default; pointer-events: none; }
+a.btn { text-decoration: none; }
 .btn.small { padding: 4px 9px; font-size: 12px; }
 .btn.icon { font-size: 17px; line-height: 1; padding: 4px 10px; }
 .btn svg { width: 14px; height: 14px; }
@@ -253,6 +254,11 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .goal-card { position: absolute; left: 14px; top: 12px; max-width: min(320px, calc(100% - 120px)); background: rgba(255,255,255,.95); color: #18211c; border-left: 4px solid #0b8f2f; border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.4; box-shadow: 0 4px 14px rgba(0,0,0,.2); pointer-events: none; }
 .goal-card .sec-label { color: #0b8f2f; }
 .goal-card .gc-hint { color: #4b5750; font-size: 12px; }
+.goal-card .gc-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.goal-card .gc-toggle { pointer-events: auto; border: 1px solid #c9d2cc; background: #fff; color: #18211c; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.goal-card .gc-toggle:hover { border-color: #0b8f2f; }
+.goal-card.min { padding: 4px; border-left-width: 3px; }
+.goal-card.min .gc-toggle { border: 0; color: #0b8f2f; }
 .plist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .prow { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; border: 1px solid var(--line); border-radius: var(--r); padding: 8px 12px; }
 .prow.cur { border-color: var(--accent); background: var(--accent-soft); }
@@ -376,7 +382,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
     <section class="sim" aria-label="Simulator">
       <div class="simbar">
         <button class="btn run" id="btnRun" aria-keyshortcuts="Space"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg><span>Run</span></button>
-        <button class="btn" id="btnReset" title="Stop and put the robot back at the start"><svg viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 1-4.6 3H1.6A6.5 6.5 0 1 0 3.3 3.4L2 2v4h4L4.4 4.4A5 5 0 0 1 8 3z" fill="currentColor"/></svg>Reset</button>
+        <button class="btn" id="btnReset" aria-keyshortcuts="R" title="Stop and put the robot back at the start (R)"><svg viewBox="0 0 16 16"><path d="M8 3a5 5 0 1 1-4.6 3H1.6A6.5 6.5 0 1 0 3.3 3.4L2 2v4h4L4.4 4.4A5 5 0 0 1 8 3z" fill="currentColor"/></svg>Reset</button>
         <select id="mapSel" aria-label="Arena">
           <option value="track">Line track</option>
           <option value="curvy">Curvy track</option>
@@ -386,6 +392,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
           <option value="mat">My track (draw your own)</option>
         </select>
         <select id="speedSel" aria-label="Simulation speed" title="Slow motion">
+          <option value="8">Fastest 8×</option>
+          <option value="4">Faster 4×</option>
           <option value="2">Fast 2×</option>
           <option value="1">Speed 1×</option>
           <option value="0.5">Slow ½×</option>
@@ -426,9 +434,9 @@ button, select, input, textarea { font: inherit; color: inherit; }
         <div class="goal-card" id="goalCard" hidden></div>
         <div class="arena-hint" id="arenaHint">Drag the robot to move it · 1 square = 10 cm</div>
         <div class="azoom">
-          <button id="zOutA" aria-label="Zoom out" title="Zoom out">−</button>
-          <button id="zIn" aria-label="Zoom in" title="Zoom in">+</button>
-          <button id="zFollow" aria-label="Follow the robot" title="Zoom in and follow the robot" aria-pressed="false"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/><path d="M8 0v3M8 13v3M0 8h3M13 8h3" stroke="currentColor" stroke-width="1.6"/></svg></button>
+          <button id="zOutA" aria-label="Zoom out" title="Zoom out (−)">−</button>
+          <button id="zIn" aria-label="Zoom in" title="Zoom in (+)">+</button>
+          <button id="zFollow" aria-label="Follow the robot" title="Zoom in and follow the robot (F)" aria-pressed="false"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/><path d="M8 0v3M8 13v3M0 8h3M13 8h3" stroke="currentColor" stroke-width="1.6"/></svg></button>
         </div>
       </div>
 
@@ -590,6 +598,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 <script src="vendor/blockly/blocks_compressed.js"></script>
 <script src="vendor/blockly/javascript_compressed.js"></script>
 <script src="vendor/blockly/msg/en.js"></script>
+<script src="vendor/lzma/lzma_worker-min.js"></script>
 <script src="js/data.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/runtime.js"></script>
